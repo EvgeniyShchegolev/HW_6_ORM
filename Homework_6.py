@@ -1,104 +1,30 @@
 import sqlalchemy as sq
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import sessionmaker
 import configparser
 import json
 
-
-Base = declarative_base()
-
-
-class Publisher(Base):
-    """Класс таблицы publisher"""
-    __tablename__ = "publisher"
-
-    id = sq.Column(sq.Integer, primary_key=True)
-    name = sq.Column(sq.String(40), unique=True, nullable=False)
-
-    def __str__(self):
-        """Возвращает данные таблицы для print()"""
-        return f'{self.id}: {self.name}'
-
-
-class Book(Base):
-    """Класс таблицы book"""
-    __tablename__ = "book"
-
-    id = sq.Column(sq.Integer, primary_key=True)
-    title = sq.Column(sq.String(60), unique=True, nullable=False)
-    id_publisher = sq.Column(sq.Integer, sq.ForeignKey("publisher.id"), nullable=False)
-
-    publisher = relationship(Publisher, backref="books")
-
-    def __str__(self):
-        """Возвращает данные таблицы для print()"""
-        return f'{self.id}: {self.title} ({self.id_publisher})'
-
-
-class Shop(Base):
-    """Класс таблицы shop"""
-    __tablename__ = "shop"
-
-    id = sq.Column(sq.Integer, primary_key=True)
-    name = sq.Column(sq.String(40), nullable=False)
-
-    def __str__(self):
-        """Возвращает данные таблицы для print()"""
-        return f'{self.id}: {self.name}'
-
-
-class Stock(Base):
-    """Класс таблицы stock"""
-    __tablename__ = "stock"
-
-    id = sq.Column(sq.Integer, primary_key=True)
-    id_book = sq.Column(sq.Integer, sq.ForeignKey("book.id"), nullable=False)
-    id_shop = sq.Column(sq.Integer, sq.ForeignKey("shop.id"), nullable=False)
-    count = sq.Column(sq.Integer, nullable=False)
-
-    book = relationship(Book, backref="stocks")
-    shop = relationship(Shop, backref="stocks")
-
-    def __str__(self):
-        """Возвращает данные таблицы для print()"""
-        return f'{self.id}: {self.count}'
-
-
-class Sale(Base):
-    """Класс таблицы sale"""
-    __tablename__ = "sale"
-
-    id = sq.Column(sq.Integer, primary_key=True)
-    price = sq.Column(sq.REAL, nullable=False)
-    date_sale = sq.Column(sq.DateTime, nullable=False)
-    id_stock = sq.Column(sq.Integer, sq.ForeignKey("stock.id"), nullable=False)
-    count = sq.Column(sq.Integer, nullable=False)
-
-    stock = relationship(Stock, backref="sales")
-
-    def __str__(self):
-        """Возвращает данные таблицы для print()"""
-        return f'{self.id}: {self.date_sale} - {self.price} руб. ({self.count} шт.)'
+from ORM_models import Publisher, Book, Stock, Shop, Sale, Base
 
 
 def _select_publ_id(id_publ):
     """Запрашивает данные о издателе по id"""
-    res = session.query(Publisher).join(Book.publisher).filter(Publisher.id == id_publ)
+    res = session.query(Publisher).join(Book).join(Stock).join(Shop).filter(Publisher.id == id_publ)
     return res
 
 
 def _select_publ_name(name_publ):
     """Запрашивает данные о издателе по имени"""
-    res = session.query(Publisher).join(Book.publisher).filter(Publisher.name == name_publ)
+    res = session.query(Publisher).join(Book).join(Stock).join(Shop).filter(Publisher.name == name_publ)
     return res
 
 
 def search_publ():
     """Находит данные издателя в БД по id или name"""
     text = input('Введите id или название издателя:\n')
-    if text.isalpha():
-        res = _select_publ_name(text)
-    else:
+    if text.strip().isdigit():
         res = _select_publ_id(text)
+    else:
+        res = _select_publ_name(text)
     _print_publ_book(res)
 
 
@@ -107,8 +33,9 @@ def _print_publ_book(q):
     for s in q.all():
         print(f'{s.id}: {s.name}')
         for bk in s.books:
-            if bk:
-                print(f'\t{bk.id}: {bk.title}')
+            print(f'\t{bk.id}: {bk.title}')
+            for st in bk.stocks:
+                print(f'\t\t{st.id}: {st.shop.name} ({st.count} шт.)')
 
 
 def load_data_json(file_json):
